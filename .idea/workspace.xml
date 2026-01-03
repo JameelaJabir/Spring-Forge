@@ -4,15 +4,8 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="a7692224-d562-40f7-a2cd-c91253815682" name="Changes" comment="fix: Ehnhanced project analyser for prompt generation">
-      <change afterPath="$PROJECT_DIR$/src/main/java/org/springforge/codegeneration/ui/DependencySelector.kt" afterDir="false" />
+    <list default="true" id="a7692224-d562-40f7-a2cd-c91253815682" name="Changes" comment="fix: fixed predicted architecture not updating in prompt file issue">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/org/springforge/codegeneration/actions/CreateNewProjectAction.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/springforge/codegeneration/actions/CreateNewProjectAction.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/org/springforge/codegeneration/analysis/ProjectAnalysisResult.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/springforge/codegeneration/analysis/ProjectAnalysisResult.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/org/springforge/codegeneration/analysis/ProjectAnalyzer.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/springforge/codegeneration/analysis/ProjectAnalyzer.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/org/springforge/codegeneration/analysis/ProjectContextBuilder.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/springforge/codegeneration/analysis/ProjectContextBuilder.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/org/springforge/codegeneration/service/SpringInitializrClient.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/springforge/codegeneration/service/SpringInitializrClient.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/org/springforge/codegeneration/ui/CreateProjectDialog.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/springforge/codegeneration/ui/CreateProjectDialog.kt" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -79,7 +72,7 @@
     <option name="RECENT_BRANCH_BY_REPOSITORY">
       <map>
         <entry key="$PROJECT_DIR$/.." value="main" />
-        <entry key="$PROJECT_DIR$" value="feat/new-project-scaffold" />
+        <entry key="$PROJECT_DIR$" value="feat/DependencyInjector" />
       </map>
     </option>
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
@@ -118,7 +111,7 @@
     &quot;Kotlin script (Beta).build.gradle.kts.executor&quot;: &quot;Run&quot;,
     &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
     &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
-    &quot;git-widget-placeholder&quot;: &quot;feat/DependencyInjector&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;fix/Prompt-Generator&quot;,
     &quot;kotlin-language-version-configured&quot;: &quot;true&quot;,
     &quot;last_opened_file_path&quot;: &quot;E:/Edu/Research/SpringForge/spring_architectures/clean/2hwan_hood_backend&quot;,
     &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
@@ -271,7 +264,9 @@
       <workItem from="1764823611835" duration="3230000" />
       <workItem from="1766293404097" duration="3508000" />
       <workItem from="1766299438791" duration="3778000" />
-      <workItem from="1766918837792" duration="1968000" />
+      <workItem from="1766918837792" duration="4773000" />
+      <workItem from="1767441962828" duration="1724000" />
+      <workItem from="1767446435533" duration="800000" />
     </task>
     <task id="LOCAL-00001" summary="feat(yamlvalidator): add initial schema validation logic">
       <option name="closed" value="true" />
@@ -449,7 +444,23 @@
       <option name="project" value="LOCAL" />
       <updated>1766297647655</updated>
     </task>
-    <option name="localTasksCounter" value="23" />
+    <task id="LOCAL-00023" summary="feat: Implemented dependency Injector for new created projects">
+      <option name="closed" value="true" />
+      <created>1766920937451</created>
+      <option name="number" value="00023" />
+      <option name="presentableId" value="LOCAL-00023" />
+      <option name="project" value="LOCAL" />
+      <updated>1766920937451</updated>
+    </task>
+    <task id="LOCAL-00024" summary="fix: fixed predicted architecture not updating in prompt file issue">
+      <option name="closed" value="true" />
+      <created>1766921072744</created>
+      <option name="number" value="00024" />
+      <option name="presentableId" value="LOCAL-00024" />
+      <option name="project" value="LOCAL" />
+      <updated>1766921072744</updated>
+    </task>
+    <option name="localTasksCounter" value="25" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -517,6 +528,8 @@
     <MESSAGE value="fix: modified notification layer to support prompt generation" />
     <MESSAGE value="fix: enhanced yaml input parser" />
     <MESSAGE value="fix: registered new prompt generation action" />
-    <option name="LAST_COMMIT_MESSAGE" value="fix: registered new prompt generation action" />
+    <MESSAGE value="feat: Implemented dependency Injector for new created projects" />
+    <MESSAGE value="fix: fixed predicted architecture not updating in prompt file issue" />
+    <option name="LAST_COMMIT_MESSAGE" value="fix: fixed predicted architecture not updating in prompt file issue" />
   </component>
 </project>
