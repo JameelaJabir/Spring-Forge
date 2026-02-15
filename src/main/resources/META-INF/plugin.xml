@@ -24,11 +24,17 @@
                 factoryClass="org.springforge.toolwindow.SpringForgeToolWindowFactory"/>
 
         <!-- Legacy Quality Tool Window (can be removed if not needed) -->
+        <notificationGroup
+                id="SpringForge Notifications"
+                displayType="BALLOON"
+                isLogByDefault="true"
+                title="SpringForge"/>
         <toolWindow
                 id="SpringForgeQuality"
                 anchor="right"
                 factoryClass="org.springforge.qualityassurance.toolwindow.QualityToolWindowFactory"/>
     </extensions>
+
 
     <actions>
 
@@ -92,6 +98,12 @@
                     class="org.springforge.cicdassistant.actions.GeneratePipelineAction"
                     text="Generate CI/CD Pipeline"
                     description="Generate base CI/CD configuration"/>
+
+            <action id="SpringForge.AnalyzeFromConsole"
+                    class="org.springforge.runtimeanalysis.actions.AnalyzeErrorAction"
+                    text="Analyze with SpringForge"
+                    description="Analyze selected console stacktrace">
+            </action>
 
         </group>
 
