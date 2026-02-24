@@ -1,0 +1,185 @@
+package org.springforge.codegeneration.service
+
+import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
+import com.fasterxml.jackson.module.kotlin.readValue
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
+import java.io.File
+import java.util.concurrent.TimeUnit
+
+/**
+ * Client for calling Google Gemini API.
+ *
+ * Designed to be swappable later with AWS Bedrock (Claude).
+ * The only public method is [generate] which takes a prompt and returns raw text.
+ *
+ * API key resolution order:
+ *  1. Explicitly passed [apiKey] constructor parameter
+ *  2. System environment variable GEMINI_API_KEY
+ *  3. .env file in the project root (key=value format)
+ */
+class GeminiClient(
+    private val apiKey: String = resolveApiKey(),
+    private val model: String = "gemini-3-flash-preview",
+    private val baseUrl: String = "https://generativelanguage.googleapis.com/v1beta"
+) {
+
+    companion object {
+        /**
+         * Resolve the API key from environment variable or .env file.
+         * Search order:
+         *  1. System env var GEMINI_API_KEY
+         *  2. .env in the target project root (if provided)
+         *  3. .env in the plugin's own source project (found via classpath)
+         *  4. ~/.springforge/.env  (user home)
+         *  5. Current working directory .env
+         */
+        fun resolveApiKey(projectRoot: String? = null): String {
+            // 1. Check system environment variable
+            val envKey = System.getenv("GEMINI_API_KEY")
+            if (!envKey.isNullOrBlank()) return envKey
+
+            // 2. Gather all possible .env file locations
+            val dotEnvLocations = mutableListOf<File>()
+
+            // Target project root
+            if (projectRoot != null) {
+                dotEnvLocations.add(File(projectRoot, ".env"))
+            }
+
+            // Plugin's own project root (traces back from compiled class location)
+            try {
+                val classLocation = GeminiClient::class.java.protectionDomain?.codeSource?.location
+                if (classLocation != null) {
+                    var dir = File(classLocation.toURI())
+                    // Walk up from build/classes/... to project root
+                    repeat(6) {
+                        dir = dir.parentFile ?: dir
+                        val candidate = File(dir, ".env")
+                        if (candidate.exists()) {
+                            dotEnvLocations.add(0, candidate) // prioritize
+                        }
+                    }
+                }
+            } catch (_: Exception) { /* ignore classpath resolution failures */ }
+
+            // User home directory
+            val userHome = System.getProperty("user.home")
+            if (userHome != null) {
+                dotEnvLocations.add(File(userHome, ".springforge/.env"))
+                dotEnvLocations.add(File(userHome, ".env"))
+            }
+
+            // Current working directory
+            dotEnvLocations.add(File(".env"))
+            dotEnvLocations.add(File(System.getProperty("user.dir"), ".env"))
+
+            for (dotEnv in dotEnvLocations) {
+                if (dotEnv.exists()) {
+                    val key = parseDotEnv(dotEnv)["GEMINI_API_KEY"]
+                    if (!key.isNullOrBlank()) return key
+                }
+            }
+
+            return ""
+        }
+
+        /**
+         * Parse a simple .env file (KEY=VALUE lines, # comments, blank lines).
+         */
+        private fun parseDotEnv(file: File): Map<String, String> {
+            val map = mutableMapOf<String, String>()
+            file.readLines().forEach { line ->
+                val trimmed = line.trim()
+                if (trimmed.isNotEmpty() && !trimmed.startsWith("#")) {
+                    val eqIndex = trimmed.indexOf('=')
+                    if (eqIndex > 0) {
+                        val key = trimmed.substring(0, eqIndex).trim()
+                        val value = trimmed.substring(eqIndex + 1).trim()
+                        map[key] = value
+                    }
+                }
+            }
+            return map
+        }
+    }
+
+    private val mapper = jacksonObjectMapper()
+
+    private val client = OkHttpClient.Builder()
+        .connectTimeout(30, TimeUnit.SECONDS)
+        .readTimeout(120, TimeUnit.SECONDS)   // LLM can be slow for large generations
+        .writeTimeout(30, TimeUnit.SECONDS)
+        .build()
+
+    /**
+     * Send a prompt to Gemini and return the raw text response.
+     *
+     * @throws IllegalStateException if GEMINI_API_KEY is not set
+     * @throws RuntimeException on HTTP / API errors
+     */
+    fun generate(prompt: String): String {
+        if (apiKey.isBlank()) {
+            throw IllegalStateException(
+                "GEMINI_API_KEY not found. Set it in one of these locations:\n" +
+                        "  1. System environment variable: GEMINI_API_KEY=your_key\n" +
+                        "  2. .env file in your project root (GEMINI_API_KEY=your_key)\n" +
+                        "  3. ~/.springforge/.env file"
+            )
+        }
+
+        val url = "$baseUrl/models/$model:generateContent?key=$apiKey"
+
+        val payload = mapOf(
+            "contents" to listOf(
+                mapOf(
+                    "parts" to listOf(
+                        mapOf("text" to prompt)
+                    )
+                )
+            ),
+            "generationConfig" to mapOf(
+                "temperature" to 0.2,          // low temp for deterministic code
+                "maxOutputTokens" to 65536,
+                "topP" to 0.95
+            )
+        )
+
+        val json = mapper.writeValueAsString(payload)
+        val body = json.toRequestBody("application/json".toMediaType())
+
+        val request = Request.Builder()
+            .url(url)
+            .post(body)
+            .build()
+
+        client.newCall(request).execute().use { resp ->
+            val respBody = resp.body?.string()
+                ?: throw RuntimeException("Empty response from Gemini API")
+
+            if (!resp.isSuccessful) {
+                throw RuntimeException(
+                    "Gemini API error ${resp.code}: $respBody"
+                )
+            }
+
+            // Parse response: { candidates: [ { content: { parts: [ { text: "..." } ] } } ] }
+            val tree = mapper.readTree(respBody)
+
+            val candidates = tree["candidates"]
+                ?: throw RuntimeException("No 'candidates' in Gemini response: $respBody")
+
+            val text = candidates[0]
+                ?.get("content")
+                ?.get("parts")
+                ?.get(0)
+                ?.get("text")
+                ?.asText()
+                ?: throw RuntimeException("Could not extract text from Gemini response: $respBody")
+
+            return text
+        }
+    }
+}
