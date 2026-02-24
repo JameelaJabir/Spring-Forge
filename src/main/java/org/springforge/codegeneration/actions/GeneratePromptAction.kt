@@ -6,6 +6,8 @@ import com.intellij.notification.Notifications
 import com.intellij.openapi.actionSystem.AnAction
 import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.fileEditor.FileEditorManager
+import com.intellij.openapi.progress.ProgressIndicator
+import com.intellij.openapi.progress.Task
 import com.intellij.openapi.vfs.LocalFileSystem
 import org.springforge.codegeneration.analysis.ProjectContextBuilder
 import org.springforge.codegeneration.parser.YamlParser
@@ -34,7 +36,6 @@ class GeneratePromptAction : AnAction("Generate Prompt", "Build prompt combining
             return
         }
 
-        // VALIDATION HANDLING FIX
         val validated = YamlValidator.validateAndFix(parsed.data!!)
         val yamlModel = when (validated) {
             is ValidationResult.AutoFixed -> validated.fixedModel
@@ -45,23 +46,32 @@ class GeneratePromptAction : AnAction("Generate Prompt", "Build prompt combining
             }
         }
 
-        // Run static project analyzer
-        val analysis = ProjectContextBuilder.build(project)
+        // Run analysis + prompt build in background
+        object : Task.Backgroundable(project, "SpringForge: Building Prompt...", false) {
+            override fun run(indicator: ProgressIndicator) {
+                indicator.text = "Analyzing project structure..."
+                indicator.fraction = 0.3
+                val analysis = ProjectContextBuilder.build(project)
 
-        // Build prompt
-        val prompt = PromptBuilder.buildPrompt(yamlModel, analysis)
+                indicator.text = "Building prompt..."
+                indicator.fraction = 0.7
+                val prompt = PromptBuilder.buildPrompt(yamlModel, analysis)
 
-        // Save prompt to temporary file
-        val promptFile = File(baseDir, "springforge_prompt.txt")
-        promptFile.writeText(prompt)
+                val promptFile = File(baseDir, "springforge_prompt.txt")
+                promptFile.writeText(prompt)
 
-        // Open in Editor
-        val vFile = LocalFileSystem.getInstance().refreshAndFindFileByIoFile(promptFile)
-        if (vFile != null) {
-            FileEditorManager.getInstance(project).openFile(vFile, true)
-        }
+                indicator.fraction = 1.0
 
-        notify(project, "Prompt generated at springforge_prompt.txt", NotificationType.INFORMATION)
+                // Open in Editor on EDT
+                com.intellij.openapi.application.ApplicationManager.getApplication().invokeLater {
+                    val vFile = LocalFileSystem.getInstance().refreshAndFindFileByIoFile(promptFile)
+                    if (vFile != null) {
+                        FileEditorManager.getInstance(project).openFile(vFile, true)
+                    }
+                    notify(project, "Prompt generated at springforge_prompt.txt", NotificationType.INFORMATION)
+                }
+            }
+        }.queue()
     }
 
     private fun notify(project: com.intellij.openapi.project.Project, msg: String, type: NotificationType) {
