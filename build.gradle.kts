@@ -39,6 +39,9 @@ dependencies {
     implementation("com.openhtmltopdf:openhtmltopdf-core:1.0.10")
     implementation("com.openhtmltopdf:openhtmltopdf-pdfbox:1.0.10")
 
+    // PostgreSQL JDBC driver for Audit Logging
+    implementation("org.postgresql:postgresql:42.7.3")
+
 
 }
 

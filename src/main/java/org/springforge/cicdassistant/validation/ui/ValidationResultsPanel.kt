@@ -7,13 +7,17 @@ import com.intellij.ui.components.JBScrollPane
 import com.intellij.ui.table.JBTable
 import com.intellij.util.ui.JBUI
 import com.intellij.util.ui.UIUtil
+import com.openhtmltopdf.pdfboxout.PdfRendererBuilder
 import org.springforge.cicdassistant.validation.AutoFix
 import org.springforge.cicdassistant.validation.IssueSeverity
 import org.springforge.cicdassistant.validation.ValidationIssue
 import org.springforge.cicdassistant.validation.ValidationResult
 import java.awt.*
 import java.io.File
+import java.io.FileOutputStream
+import java.util.Base64
 import javax.swing.*
+import javax.swing.filechooser.FileNameExtensionFilter
 import javax.swing.table.AbstractTableModel
 import javax.swing.table.DefaultTableCellRenderer
 
@@ -63,7 +67,7 @@ class ValidationResultsPanel(private val project: Project) : JPanel(BorderLayout
     private val issuesPanelTitle    = JLabel("ALL FILES")
 
     private val applyFixesButton    = JButton("Apply Fixes")
-    private val exportButton        = JButton("Export Report")
+    private val exportButton        = JButton("Export PDF")
     private val dismissButton       = JButton("Dismiss")
 
     init {
@@ -509,51 +513,254 @@ class ValidationResultsPanel(private val project: Project) : JPanel(BorderLayout
     }
 
     // ══════════════════════════════════════════════════════════════════════════
-    //  Export report
+    //  Export PDF
     // ══════════════════════════════════════════════════════════════════════════
 
     private fun exportReport(result: ValidationResult) {
         val fc = JFileChooser().apply {
-            dialogTitle  = "Export Validation Report"
-            selectedFile = File("validation-report.txt")
+            dialogTitle    = "Export Validation Report as PDF"
+            selectedFile   = File("validation-report.pdf")
+            fileFilter     = FileNameExtensionFilter("PDF Files (*.pdf)", "pdf")
         }
         if (fc.showSaveDialog(this) == JFileChooser.APPROVE_OPTION) {
+            var outFile = fc.selectedFile
+            if (!outFile.name.endsWith(".pdf", ignoreCase = true))
+                outFile = File(outFile.absolutePath + ".pdf")
             try {
-                fc.selectedFile.writeText(generateReport(result))
+                generatePdfReport(result, outFile)
                 Messages.showInfoMessage(
                     project,
-                    "Report exported to:\n${fc.selectedFile.absolutePath}",
+                    "PDF exported to:\n${outFile.absolutePath}",
                     "Export Successful"
                 )
             } catch (e: Exception) {
-                Messages.showErrorDialog(project, "Failed to export: ${e.message}", "Export Failed")
+                Messages.showErrorDialog(project, "Failed to export PDF: ${e.message}", "Export Failed")
             }
         }
     }
 
-    private fun generateReport(result: ValidationResult): String = buildString {
-        val sep = "=".repeat(80)
-        append("$sep\nSPRINGFORGE CI/CD VALIDATION REPORT\n$sep\n\n")
-        append("Generated : ${result.timestamp}\n")
-        append("Files     : ${result.filesValidated}\n")
-        append("Duration  : ${result.durationMs}ms\n")
-        append("Status    : ${if (result.isSuccess()) "PASSED" else "FAILED"}\n\n")
-        append("Summary   : Errors=${result.getErrorCount()}  Warnings=${result.getWarningCount()}  Info=${result.getInfoCount()}\n\n")
+    private fun generatePdfReport(result: ValidationResult, outFile: File) {
+        val html = buildHtmlReport(result)
+        FileOutputStream(outFile).use { os ->
+            PdfRendererBuilder()
+                .useFastMode()
+                .withHtmlContent(html, null)
+                .toStream(os)
+                .run()
+        }
+    }
 
-        if (result.issues.isNotEmpty()) {
-            append("${"—".repeat(80)}\nISSUES BY FILE\n${"—".repeat(80)}\n\n")
-            result.getIssuesByFile().forEach { (filePath, issues) ->
-                append("▸ ${File(filePath).name}  ($filePath)\n")
-                issues.forEach { issue ->
-                    append("  ${issue.getSeveritySymbol()} [${issue.ruleId}] ${issue.ruleName}\n")
-                    issue.lineNumber?.let { append("     Line    : $it\n") }
-                    append("     Message : ${issue.message}\n")
-                    issue.context?.let         { append("     Context : $it\n") }
-                    issue.autoFix?.let { fix -> append("     Fix     : ${fix.description}\n") }
-                    append("\n")
-                }
+    private fun buildHtmlReport(result: ValidationResult): String {
+        val status       = if (result.isSuccess()) "PASSED" else "FAILED"
+        val statusColor  = if (result.isSuccess()) "#28A745" else "#D73A49"
+        val now          = java.time.LocalDateTime.now()
+            .format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))
+
+        // Load logo as base64 (graceful fallback if missing)
+        val logoBase64 = try {
+            val stream = javaClass.classLoader.getResourceAsStream("icons/springforge_logo.png")
+            if (stream != null) Base64.getEncoder().encodeToString(stream.readBytes()) else ""
+        } catch (_: Exception) { "" }
+        val logoTag = if (logoBase64.isNotEmpty())
+            "<img src='data:image/png;base64,$logoBase64' style='height:36px;vertical-align:middle;margin-right:12px;'/>"
+        else ""
+
+        // Summary counts
+        val errors   = result.getErrorCount()
+        val warnings = result.getWarningCount()
+        val infos    = result.getInfoCount()
+        val total    = result.issues.size
+
+        // Per-file issue sections
+        val fileSections = buildString {
+            if (result.issues.isEmpty()) {
+                append("""
+                    <div style="text-align:center;padding:40px;color:#28A745;font-size:16px;font-weight:bold;">
+                        &#10003; No issues found &#8212; all files passed validation.
+                    </div>
+                """.trimIndent())
+            } else {
+                result.getIssuesByFile().entries
+                    .sortedBy { File(it.key).name }
+                    .forEach { (filePath, issues) ->
+                        val fileName   = File(filePath).name
+                        val fErr  = issues.count { it.severity == IssueSeverity.ERROR }
+                        val fWarn = issues.count { it.severity == IssueSeverity.WARNING }
+                        val fInfo = issues.count { it.severity == IssueSeverity.INFO }
+
+                        append("""
+                            <div class="file-section">
+                              <div class="file-header">
+                                <span class="file-name">$fileName</span>
+                                <span class="file-path">$filePath</span>
+                                <span class="file-badges">
+                        """.trimIndent())
+                        if (fErr  > 0) append("<span class='badge badge-error'>$fErr errors</span> ")
+                        if (fWarn > 0) append("<span class='badge badge-warn'>$fWarn warnings</span> ")
+                        if (fInfo > 0) append("<span class='badge badge-info'>$fInfo info</span>")
+                        append("</span></div>")
+
+                        issues.forEach { issue ->
+                            val (cardColor, labelColor, label) = when (issue.severity) {
+                                IssueSeverity.ERROR   -> Triple("#FFF0F0", "#D73A49", "ERROR")
+                                IssueSeverity.WARNING -> Triple("#FFF8F0", "#E36209", "WARNING")
+                                IssueSeverity.INFO    -> Triple("#F0F6FF", "#005CC5", "INFO")
+                            }
+                            val accentColor = labelColor
+                            val lineStr = issue.lineNumber?.let { "Line $it" } ?: ""
+                            val fixHtml = issue.autoFix?.let { fix ->
+                                val fixable = if (fix.isAutoApplicable) "&#10003; Auto-fixable" else "&#9888; Manual review required"
+                                "<div class='fix-block'><b>Fix:</b> ${escHtml(fix.description)}<br/><span class='fix-badge'>$fixable</span></div>"
+                            } ?: ""
+                            val contextHtml = issue.context?.let {
+                                "<div class='context-block'><b>Context:</b><br/><code>${escHtml(it)}</code></div>"
+                            } ?: ""
+
+                            append("""
+                                <div class="issue-card" style="border-left:4px solid $accentColor;background:$cardColor;">
+                                  <div class="issue-header">
+                                    <span class="severity-badge" style="background:$labelColor;">$label</span>
+                                    <span class="rule-name">${escHtml(issue.ruleName)}</span>
+                                    <span class="rule-id">[${escHtml(issue.ruleId)}]</span>
+                                    ${if (lineStr.isNotEmpty()) "<span class='line-ref'>$lineStr</span>" else ""}
+                                  </div>
+                                  <div class="issue-message">${escHtml(issue.message)}</div>
+                                  $contextHtml
+                                  $fixHtml
+                                </div>
+                            """.trimIndent())
+                        }
+                        append("</div>")
+                    }
             }
         }
-        append("$sep\nEND OF REPORT\n$sep")
+
+        return """<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="UTF-8"/>
+  <style>
+    @page { size: A4 portrait; margin: 18mm 16mm; }
+    body  { font-family: Arial, Helvetica, sans-serif; font-size: 11px; color: #24292E; margin:0; padding:0; }
+
+    /* ── Header ── */
+    .header { background: #0D1117; color: #FFFFFF; padding: 18px 20px; display: block; }
+    .header-title { font-size: 20px; font-weight: bold; vertical-align: middle; }
+    .header-sub { font-size: 11px; color: #8B949E; margin-top: 4px; }
+
+    /* ── Summary cards ── */
+    .summary-row { display: block; padding: 14px 0 10px 0; }
+    table.summary-table { width: 100%; border-collapse: collapse; }
+    .summary-table td { width: 25%; padding: 10px 12px; border: 1px solid #E1E4E8; border-radius: 6px; text-align: center; }
+    .card-number { font-size: 24px; font-weight: bold; }
+    .card-label  { font-size: 10px; color: #586069; margin-top: 2px; }
+    .card-green  { color: #28A745; }
+    .card-red    { color: #D73A49; }
+    .card-orange { color: #E36209; }
+    .card-blue   { color: #005CC5; }
+
+    /* ── Meta info ── */
+    .meta-table { width: 100%; border-collapse: collapse; margin: 8px 0 14px 0; }
+    .meta-table td { padding: 4px 8px; font-size: 10px; color: #586069; }
+    .meta-table td:first-child { font-weight: bold; width: 100px; }
+
+    /* ── Section header ── */
+    .section-title { font-size: 13px; font-weight: bold; color: #0D1117;
+                     border-bottom: 2px solid #0D1117; padding-bottom: 4px; margin: 16px 0 10px 0; }
+
+    /* ── File section ── */
+    .file-section { margin-bottom: 20px; }
+    .file-header { background: #F6F8FA; border: 1px solid #E1E4E8; padding: 8px 12px;
+                   border-radius: 4px 4px 0 0; display: block; }
+    .file-name   { font-weight: bold; font-size: 12px; }
+    .file-path   { font-size: 9px; color: #586069; display: block; margin-top: 2px; }
+    .file-badges { font-size: 9px; margin-top: 4px; display: block; }
+
+    /* ── Badges ── */
+    .badge { padding: 1px 6px; border-radius: 10px; font-size: 9px; font-weight: bold; color: #fff; }
+    .badge-error { background: #D73A49; }
+    .badge-warn  { background: #E36209; }
+    .badge-info  { background: #005CC5; }
+
+    /* ── Issue cards ── */
+    .issue-card { margin: 6px 0; padding: 10px 12px; border-radius: 0 4px 4px 0; }
+    .issue-header { margin-bottom: 4px; }
+    .severity-badge { padding: 2px 7px; border-radius: 3px; color: #fff; font-size: 9px; font-weight: bold; }
+    .rule-name { font-weight: bold; font-size: 11px; margin-left: 6px; }
+    .rule-id   { font-size: 9px; color: #586069; margin-left: 4px; }
+    .line-ref  { font-size: 9px; color: #586069; margin-left: 8px; font-style: italic; }
+    .issue-message { font-size: 10px; color: #24292E; margin: 4px 0; }
+    .context-block { background: #F6F8FA; border: 1px solid #E1E4E8; padding: 6px 8px;
+                     margin: 6px 0; border-radius: 3px; font-size: 9px; }
+    .context-block code { font-family: Courier New, monospace; white-space: pre-wrap; }
+    .fix-block { background: #F0FFF4; border: 1px solid #C3E6CB; padding: 6px 8px;
+                 margin: 6px 0; border-radius: 3px; font-size: 10px; color: #1A6835; }
+    .fix-badge { font-size: 9px; font-weight: bold; margin-top: 3px; display: block; }
+
+    /* ── Footer ── */
+    .footer { text-align: center; font-size: 9px; color: #8B949E; margin-top: 24px;
+              border-top: 1px solid #E1E4E8; padding-top: 8px; }
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <div class="header">
+    $logoTag<span class="header-title">SpringForge &#8212; Validation Report</span>
+    <div class="header-sub">CI/CD Pipeline Quality Analysis</div>
+  </div>
+
+  <!-- Meta info -->
+  <table class="meta-table">
+    <tr><td>Generated</td><td>$now</td></tr>
+    <tr><td>Project</td><td>${escHtml(project.basePath ?: "unknown")}</td></tr>
+    <tr><td>Files validated</td><td>${result.filesValidated}</td></tr>
+    <tr><td>Duration</td><td>${result.durationMs} ms</td></tr>
+    <tr><td>Status</td><td><b style="color:$statusColor;">$status</b></td></tr>
+  </table>
+
+  <!-- Summary cards -->
+  <div class="section-title">Summary</div>
+  <table class="summary-table">
+    <tr>
+      <td>
+        <div class="card-number ${if (total == 0) "card-green" else "card-red"}">$total</div>
+        <div class="card-label">Total Issues</div>
+      </td>
+      <td>
+        <div class="card-number ${if (errors == 0) "card-green" else "card-red"}">$errors</div>
+        <div class="card-label">Errors</div>
+      </td>
+      <td>
+        <div class="card-number ${if (warnings == 0) "card-green" else "card-orange"}">$warnings</div>
+        <div class="card-label">Warnings</div>
+      </td>
+      <td>
+        <div class="card-number card-blue">$infos</div>
+        <div class="card-label">Info</div>
+      </td>
+    </tr>
+  </table>
+
+  <!-- Issues by file -->
+  <div class="section-title">Issues by File</div>
+  $fileSections
+
+  <!-- Footer -->
+  <div class="footer">
+    Generated by SpringForge CI/CD Assistant &#8226; ${result.filesValidated} file(s) analysed
+  </div>
+
+</body>
+</html>"""
     }
+
+    /** HTML-escape a string for safe embedding in HTML content. */
+    private fun escHtml(s: String): String = s
+        .replace("&", "&amp;")
+        .replace("<", "&lt;")
+        .replace(">", "&gt;")
+        .replace("\"", "&quot;")
 }
