@@ -16,6 +16,9 @@
         <!-- Project-level service for tool window -->
         <projectService serviceImplementation="org.springforge.toolwindow.SpringForgeToolWindowService"/>
 
+        <!-- Audit logging service (PostgreSQL) -->
+        <projectService serviceImplementation="org.springforge.cicdassistant.audit.AuditService"/>
+
         <!-- Main SpringForge Tool Window (sidebar) -->
         <toolWindow
                 id="SpringForge"

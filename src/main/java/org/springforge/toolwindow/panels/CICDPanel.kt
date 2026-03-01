@@ -15,6 +15,7 @@ import com.intellij.ui.components.JBTextField
 import com.intellij.util.ui.JBUI
 import com.intellij.util.ui.UIUtil
 import kotlinx.coroutines.runBlocking
+import org.springforge.cicdassistant.audit.AuditService
 import org.springforge.cicdassistant.bedrock.BedrockClient
 import org.springforge.cicdassistant.github.GitHubMCPClient
 import org.springforge.cicdassistant.github.mcp.GitHubMCPServerConnector
@@ -615,6 +616,18 @@ class CICDPanel(private val project: Project) : JPanel() {
                     appendResults("🎉 All selected CI/CD files generated successfully!\n")
                     appendLog("Files saved to project root.  Use Validate or Explain to analyze.\n", "info")
 
+                    val generatedArtifacts = buildList {
+                        if (dockerfileCheck.isSelected) add("dockerfile")
+                        if (actionsCheck.isSelected)    add("workflow")
+                        if (composeCheck.isSelected)    add("compose")
+                    }
+                    AuditService.getInstance(project).logGeneration(
+                        source     = if (isLocal) "LOCAL" else "GITHUB",
+                        artifacts  = generatedArtifacts,
+                        durationMs = 0L,
+                        success    = true
+                    )
+
                     ApplicationManager.getApplication().invokeLater {
                         validateButton.isEnabled = true
                         explainButton.isEnabled  = true
@@ -626,6 +639,13 @@ class CICDPanel(private val project: Project) : JPanel() {
                     }
                 } catch (ex: Exception) {
                     appendResults("❌ Error: ${ex.message}\n")
+                    AuditService.getInstance(project).logGeneration(
+                        source     = if (isLocalSelected) "LOCAL" else "GITHUB",
+                        artifacts  = emptyList(),
+                        durationMs = 0L,
+                        success    = false,
+                        errorMsg   = ex.message
+                    )
                     ApplicationManager.getApplication().invokeLater {
                         Messages.showErrorDialog(project, "Failed to generate files:\n${ex.message}", "SpringForge — Error")
                     }
@@ -667,6 +687,15 @@ class CICDPanel(private val project: Project) : JPanel() {
                     )
                     indicator.fraction = 0.9
 
+                    AuditService.getInstance(project).logValidation(
+                        filesCount = result.filesValidated,
+                        errorCount = result.getErrorCount(),
+                        warnCount  = result.getWarningCount(),
+                        infoCount  = result.getInfoCount(),
+                        durationMs = result.durationMs,
+                        success    = result.isSuccess()
+                    )
+
                     ApplicationManager.getApplication().invokeLater {
                         val summaryStyle = if (result.isSuccess()) "success" else "warning"
                         appendLog("${result.getSummary()} — opening results window.\n", summaryStyle)
@@ -675,6 +704,10 @@ class CICDPanel(private val project: Project) : JPanel() {
                     indicator.fraction = 1.0
                 } catch (ex: Exception) {
                     appendResults("❌ Validation error: ${ex.message}\n")
+                    AuditService.getInstance(project).logValidation(
+                        filesCount = 0, errorCount = 0, warnCount = 0, infoCount = 0,
+                        durationMs = 0L, success = false, errorMsg = ex.message
+                    )
                     ApplicationManager.getApplication().invokeLater {
                         Messages.showErrorDialog(project, "Validation failed:\n${ex.message}", "Validation Error")
                     }
@@ -720,6 +753,15 @@ class CICDPanel(private val project: Project) : JPanel() {
                     val result = ValidationService.getInstance(project).validateFiles(existingFiles)
                     indicator.fraction = 0.9
 
+                    AuditService.getInstance(project).logValidation(
+                        filesCount = result.filesValidated,
+                        errorCount = result.getErrorCount(),
+                        warnCount  = result.getWarningCount(),
+                        infoCount  = result.getInfoCount(),
+                        durationMs = result.durationMs,
+                        success    = result.isSuccess()
+                    )
+
                     ApplicationManager.getApplication().invokeLater {
                         val summaryStyle = if (result.isSuccess()) "success" else "warning"
                         appendLog("${result.getSummary()} — opening results window.\n", summaryStyle)
@@ -728,6 +770,10 @@ class CICDPanel(private val project: Project) : JPanel() {
                     indicator.fraction = 1.0
                 } catch (ex: Exception) {
                     appendResults("❌ Validation error: ${ex.message}\n")
+                    AuditService.getInstance(project).logValidation(
+                        filesCount = 0, errorCount = 0, warnCount = 0, infoCount = 0,
+                        durationMs = 0L, success = false, errorMsg = ex.message
+                    )
                     ApplicationManager.getApplication().invokeLater {
                         Messages.showErrorDialog(project, "Validation failed:\n${ex.message}", "Validation Error")
                     }
@@ -761,6 +807,13 @@ class CICDPanel(private val project: Project) : JPanel() {
                     )
                     indicator.fraction = 0.95
 
+                    AuditService.getInstance(project).logExplainability(
+                        filesCount   = result.filesAnalyzed,
+                        insightCount = result.getTotalCount(),
+                        durationMs   = result.durationMs,
+                        success      = true
+                    )
+
                     ApplicationManager.getApplication().invokeLater {
                         appendLog("${result.getSummary()} — opening explainability window.\n", "info")
                         showExplainabilityDialog(result)
@@ -768,6 +821,10 @@ class CICDPanel(private val project: Project) : JPanel() {
                     indicator.fraction = 1.0
                 } catch (ex: Exception) {
                     appendResults("❌ Explanation error: ${ex.message}\n")
+                    AuditService.getInstance(project).logExplainability(
+                        filesCount = 0, insightCount = 0,
+                        durationMs = 0L, success = false, errorMsg = ex.message
+                    )
                     ApplicationManager.getApplication().invokeLater {
                         Messages.showErrorDialog(project, "Failed to explain files:\n${ex.message}", "SpringForge — Error")
                     }
@@ -812,6 +869,13 @@ class CICDPanel(private val project: Project) : JPanel() {
                         val result = ExplainabilityService.getInstance(project).explainFiles(files)
                         indicator.fraction = 0.95
 
+                        AuditService.getInstance(project).logExplainability(
+                            filesCount   = result.filesAnalyzed,
+                            insightCount = result.getTotalCount(),
+                            durationMs   = result.durationMs,
+                            success      = true
+                        )
+
                         ApplicationManager.getApplication().invokeLater {
                             appendLog("${result.getSummary()} — opening explainability window.\n", "info")
                             showExplainabilityDialog(result)
@@ -819,6 +883,10 @@ class CICDPanel(private val project: Project) : JPanel() {
                         indicator.fraction = 1.0
                     } catch (ex: Exception) {
                         appendResults("❌ Explanation error: ${ex.message}\n")
+                        AuditService.getInstance(project).logExplainability(
+                            filesCount = 0, insightCount = 0,
+                            durationMs = 0L, success = false, errorMsg = ex.message
+                        )
                         ApplicationManager.getApplication().invokeLater {
                             Messages.showErrorDialog(
                                 project, "Failed to explain files:\n${ex.message}", "SpringForge — Error"
