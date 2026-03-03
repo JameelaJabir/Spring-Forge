@@ -35,6 +35,14 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.3")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-jdk8:1.7.3")
 
+    // HTML → PDF rendering for the Explainability Report export
+    implementation("com.openhtmltopdf:openhtmltopdf-core:1.0.10")
+    implementation("com.openhtmltopdf:openhtmltopdf-pdfbox:1.0.10")
+
+    // PostgreSQL JDBC driver for Audit Logging
+    implementation("org.postgresql:postgresql:42.7.3")
+
+
 }
 
 intellij {

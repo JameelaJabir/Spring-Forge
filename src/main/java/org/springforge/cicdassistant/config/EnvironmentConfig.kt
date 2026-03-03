@@ -121,6 +121,28 @@ object EnvironmentConfig {
         fun isConfigured(): Boolean = !personalAccessToken.isNullOrBlank()
     }
 
+    // PostgreSQL Audit Log Configuration (optional)
+    object Postgres {
+        val host: String?
+            get() = getEnv("POSTGRES_HOST")
+
+        val port: Int
+            get() = getEnv("POSTGRES_PORT", "5432")?.toIntOrNull() ?: 5432
+
+        val database: String?
+            get() = getEnv("POSTGRES_DB")
+
+        val user: String?
+            get() = getEnv("POSTGRES_USER")
+
+        val password: String?
+            get() = getEnv("POSTGRES_PASSWORD")
+
+        fun isConfigured(): Boolean =
+            !host.isNullOrBlank() && !database.isNullOrBlank() &&
+            !user.isNullOrBlank() && !password.isNullOrBlank()
+    }
+
     /**
      * Validate that all required environment variables are set
      * @throws IllegalStateException if required variables are missing
