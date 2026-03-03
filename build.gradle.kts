@@ -35,6 +35,9 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.3")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-jdk8:1.7.3")
 
+    //
+    implementation("org.json:json:20231013")
+
 }
 
 intellij {
