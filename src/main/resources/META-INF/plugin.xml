@@ -76,6 +76,11 @@
                         text="Generate Prompt for Code Generation"
                         description="Parse input.yml + analyze project + build LLM prompt"/>
 
+                <action id="SpringForge.CodeGen.GenerateCode"
+                        class="org.springforge.codegeneration.actions.GenerateCodeAction"
+                        text="Generate Code (input.yml → Gemini → Files)"
+                        description="Parse input.yml, analyze project, call Gemini LLM, and write generated Java files"/>
+
             </group>
 
             <!-- ==============================
