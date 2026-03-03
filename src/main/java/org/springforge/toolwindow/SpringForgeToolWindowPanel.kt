@@ -3,6 +3,7 @@ package org.springforge.toolwindow
 import com.intellij.openapi.project.Project
 import com.intellij.ui.JBColor
 import com.intellij.ui.components.JBTabbedPane
+import org.springforge.cicdassistant.audit.ui.AuditDashboardPanel
 import org.springforge.toolwindow.panels.CICDPanel
 import org.springforge.toolwindow.panels.CodeGenerationPanel
 import org.springforge.toolwindow.panels.QualityAssurancePanel
@@ -22,10 +23,11 @@ class SpringForgeToolWindowPanel(private val project: Project) : JPanel() {
     private val tabbedPane = JBTabbedPane()
 
     // Individual module panels
-    private val codeGenPanel = CodeGenerationPanel(project)
-    private val cicdPanel = CICDPanel(project)
-    private val qualityPanel = QualityAssurancePanel(project)
-    private val runtimePanel = RuntimeDebuggerPanel(project)
+    private val codeGenPanel  = CodeGenerationPanel(project)
+    private val cicdPanel     = CICDPanel(project)
+    private val qualityPanel  = QualityAssurancePanel(project)
+    private val runtimePanel  = RuntimeDebuggerPanel(project)
+    private val auditPanel    = AuditDashboardPanel(project)
 
     init {
         layout = BorderLayout()
@@ -39,9 +41,10 @@ class SpringForgeToolWindowPanel(private val project: Project) : JPanel() {
         // Add tabbed pane with all modules
         tabbedPane.apply {
             addTab("Code Gen", codeGenPanel)
-            addTab("CI/CD", cicdPanel)
-            addTab("Quality", qualityPanel)
-            addTab("Runtime", runtimePanel)
+            addTab("CI/CD",    cicdPanel)
+            addTab("Quality",  qualityPanel)
+            addTab("Runtime",  runtimePanel)
+            addTab("Audit",    auditPanel)
         }
 
         add(tabbedPane, BorderLayout.CENTER)
@@ -74,9 +77,10 @@ class SpringForgeToolWindowPanel(private val project: Project) : JPanel() {
     fun switchToTab(tabName: String) {
         when (tabName.lowercase()) {
             "codegen", "code generation" -> tabbedPane.selectedIndex = 0
-            "cicd", "ci/cd" -> tabbedPane.selectedIndex = 1
-            "quality", "qa" -> tabbedPane.selectedIndex = 2
-            "runtime", "debugger" -> tabbedPane.selectedIndex = 3
+            "cicd", "ci/cd"              -> tabbedPane.selectedIndex = 1
+            "quality", "qa"              -> tabbedPane.selectedIndex = 2
+            "runtime", "debugger"        -> tabbedPane.selectedIndex = 3
+            "audit"                      -> tabbedPane.selectedIndex = 4
         }
     }
 
@@ -99,4 +103,6 @@ class SpringForgeToolWindowPanel(private val project: Project) : JPanel() {
      * Get reference to Runtime Debugger panel
      */
     fun getRuntimePanel(): RuntimeDebuggerPanel = runtimePanel
+
+    fun getAuditPanel(): AuditDashboardPanel = auditPanel
 }
