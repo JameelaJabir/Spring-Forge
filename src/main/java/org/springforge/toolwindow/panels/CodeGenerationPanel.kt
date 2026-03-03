@@ -1,17 +1,26 @@
 package org.springforge.toolwindow.panels
 
+import com.intellij.notification.Notification
+import com.intellij.notification.NotificationType
+import com.intellij.notification.Notifications
 import com.intellij.openapi.project.Project
 import com.intellij.ui.JBColor
 import com.intellij.ui.components.JBLabel
 import com.intellij.ui.components.JBScrollPane
 import org.springforge.codegeneration.actions.CreateNewProjectAction
 import org.springforge.codegeneration.actions.ExistingProjectAction
+import org.springforge.codegeneration.actions.GenerateCodeAction
 import org.springforge.codegeneration.actions.GeneratePromptAction
+import org.springforge.codegeneration.parser.InputModel
+import org.springforge.codegeneration.parser.YamlParser
+import org.springforge.codegeneration.parser.YamlWriter
+import org.springforge.codegeneration.ui.EntityDesignerDialog
 import java.awt.BorderLayout
 import java.awt.Dimension
 import java.awt.GridBagConstraints
 import java.awt.GridBagLayout
 import java.awt.Insets
+import java.io.File
 import javax.swing.*
 
 /**
@@ -54,6 +63,21 @@ class CodeGenerationPanel(private val project: Project) : JPanel() {
 
         gbc.gridy++
         contentPanel.add(Box.createVerticalStrut(15), gbc)
+
+        // ★ GENERATE CODE — primary action with Entity Designer UI
+        gbc.gridy++
+        val generateCodeButton = createActionButton(
+            "\uD83D\uDE80 Generate Code (Entity Designer)",
+            "Design entities visually, save to input.yml, and generate Spring Boot code with AI",
+            "icons/generate.png",
+            primary = true
+        ) {
+            openEntityDesignerAndGenerate()
+        }
+        contentPanel.add(generateCodeButton, gbc)
+
+        gbc.gridy++
+        contentPanel.add(Box.createVerticalStrut(8), gbc)
 
         // Create New Project button
         gbc.gridy++
@@ -119,19 +143,26 @@ class CodeGenerationPanel(private val project: Project) : JPanel() {
         title: String,
         description: String,
         iconPath: String?,
+        primary: Boolean = false,
         action: () -> Unit
     ): JPanel {
         val panel = JPanel(BorderLayout(10, 5))
+
+        val borderColor = if (primary)
+            JBColor(java.awt.Color(76, 175, 80), java.awt.Color(76, 175, 80))
+        else
+            JBColor.border()
+
         panel.border = BorderFactory.createCompoundBorder(
-            BorderFactory.createLineBorder(JBColor.border()),
-            BorderFactory.createEmptyBorder(10, 10, 10, 10)
+            BorderFactory.createLineBorder(borderColor, if (primary) 2 else 1),
+            BorderFactory.createEmptyBorder(if (primary) 12 else 10, 10, if (primary) 12 else 10, 10)
         )
 
         // Button content
         val contentPanel = JPanel(BorderLayout(5, 2))
 
         val titleLabel = JBLabel(title)
-        titleLabel.font = titleLabel.font.deriveFont(java.awt.Font.BOLD)
+        titleLabel.font = titleLabel.font.deriveFont(java.awt.Font.BOLD, if (primary) 13f else 12f)
 
         val descLabel = JBLabel("<html><small>$description</small></html>")
         descLabel.foreground = JBColor.GRAY
@@ -140,7 +171,7 @@ class CodeGenerationPanel(private val project: Project) : JPanel() {
         contentPanel.add(descLabel, BorderLayout.CENTER)
 
         // Action button
-        val button = JButton("Run")
+        val button = JButton(if (primary) "Open Designer" else "Run")
         button.addActionListener { action() }
 
         panel.add(contentPanel, BorderLayout.CENTER)
@@ -163,6 +194,52 @@ class CodeGenerationPanel(private val project: Project) : JPanel() {
         })
 
         return panel
+    }
+
+    // ─── Entity Designer → save YAML → trigger code generation ─────
+
+    private fun openEntityDesignerAndGenerate() {
+        val baseDir = project.basePath ?: return
+
+        // Try to load existing input.yml so the dialog pre-populates
+        val yamlFile = File(baseDir, "input.yml")
+        var existingModel: InputModel? = null
+        if (yamlFile.exists()) {
+            try {
+                val result = YamlParser.parse(yamlFile.readText())
+                if (result.isValid) existingModel = result.data
+            } catch (_: Exception) { /* ignore, start fresh */ }
+        }
+
+        val dialog = EntityDesignerDialog(project, existingModel)
+        if (!dialog.showAndGet()) return  // user cancelled
+
+        val model = dialog.toInputModel()
+
+        // Save to input.yml for future use / manual review
+        try {
+            val yaml = YamlWriter.write(model)
+            yamlFile.writeText(yaml)
+            Notifications.Bus.notify(
+                Notification("SpringForge", "Entity Designer",
+                    "Saved ${model.entities.size} entities to input.yml",
+                    NotificationType.INFORMATION),
+                project
+            )
+        } catch (ex: Exception) {
+            Notifications.Bus.notify(
+                Notification("SpringForge", "Entity Designer",
+                    "Failed to save input.yml: ${ex.message}",
+                    NotificationType.ERROR),
+                project
+            )
+            return
+        }
+
+        // Trigger code generation (existing action reads input.yml)
+        val action = GenerateCodeAction()
+        val event = createActionEvent()
+        action.actionPerformed(event)
     }
 
     private fun createInfoPanel(): JPanel {
