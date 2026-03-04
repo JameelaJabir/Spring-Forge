@@ -99,24 +99,27 @@ class RuntimeAnalysisPanel(private val project: Project) : JPanel() {
     // ─────────────────────────────────────────────────────────────
 
     /**
-     * Returns null if the input looks like a valid Java stacktrace,
+     * Returns null if the input looks like a valid error of any kind,
      * or a user-friendly error message string if it does not.
      *
-     * A valid stacktrace must contain AT LEAST ONE of:
-     *   - An exception line:  SomeException: message  OR  SomeException at ...
-     *   - A stack frame:      at com.example.Class.method(File.java:42)
-     *   - A caused-by line:   Caused by: ...
+     * Accepts:
+     *   - Runtime stacktraces:  SomeException: message / at com.example.Class.method(File.java:42)
+     *   - Compile errors:       java: cannot find symbol / error: ... / File.java:42: error: ...
+     *   - Build errors:         BUILD FAILED / FAILURE / compilation error
+     *   - Gradle/Maven errors:  > Task :compileJava FAILED / [ERROR]
+     *   - File-path errors:     path/File.java:42:10  (file:line:col format)
      */
     private fun validateStacktrace(text: String): String? {
         if (text.isBlank()) {
-            return "Empty input — please paste a Java error stacktrace."
+            return "Empty input — please paste an error or stacktrace."
         }
 
         // Too short to be meaningful
-        if (text.length < 20) {
-            return "Input is too short to be a stacktrace. Please paste the full error output from your IDE console or logs."
+        if (text.length < 10) {
+            return "Input is too short. Please paste the full error output from your IDE console or logs."
         }
 
+        // Runtime exception / stack trace patterns
         val hasExceptionLine = Regex(
             """([A-Za-z_${'$'}][A-Za-z0-9_${'$'}]*\.)*[A-Za-z_${'$'}][A-Za-z0-9_${'$'}]*Exception[:\s]|""" +
             """([A-Za-z_${'$'}][A-Za-z0-9_${'$'}]*\.)*[A-Za-z_${'$'}][A-Za-z0-9_${'$'}]*Error[:\s]|""" +

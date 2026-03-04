@@ -18,12 +18,6 @@ dependencies {
     implementation("com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.16.0")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.0")
 
-    // AWS Bedrock Dependencies - Use platform() for BOM
-    implementation(platform("software.amazon.awssdk:bom:2.39.1"))
-    implementation("software.amazon.awssdk:bedrockruntime")
-    implementation("software.amazon.awssdk:auth")
-    implementation("software.amazon.awssdk:sts") // For credential validation
-
     // AST Analysis - JavaParser for Java code analysis
     implementation("com.github.javaparser:javaparser-symbol-solver-core:3.25.7")
 
@@ -58,8 +52,20 @@ intellij {
 }
 
 tasks {
+    patchPluginXml {
+        sinceBuild.set("232")
+        untilBuild.set("253.*")   // supports up to 2025.3.x
+    }
+
+    // Bundle the .env file from project root into the JAR resources
+    processResources {
+        from(rootProject.file(".env")) {
+            into("") // place at root of resources → accessible via classLoader.getResource(".env")
+        }
+    }
+
     withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile> {
-        kotlinOptions.jvmTarget = "21"
+        kotlinOptions.jvmTarget = "17"
     }
 
     buildSearchableOptions {
@@ -68,7 +74,7 @@ tasks {
 }
 
 java {
-    sourceCompatibility = JavaVersion.VERSION_21
-    targetCompatibility = JavaVersion.VERSION_21
+    sourceCompatibility = JavaVersion.VERSION_17
+    targetCompatibility = JavaVersion.VERSION_17
 }
 

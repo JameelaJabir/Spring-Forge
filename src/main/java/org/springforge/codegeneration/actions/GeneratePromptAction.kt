@@ -6,7 +6,10 @@ import com.intellij.notification.Notifications
 import com.intellij.openapi.actionSystem.AnAction
 import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.fileEditor.FileEditorManager
+import com.intellij.openapi.progress.ProgressIndicator
+import com.intellij.openapi.progress.Task
 import com.intellij.openapi.vfs.LocalFileSystem
+import org.springforge.codegeneration.analysis.ExistingEntityExtractor
 import org.springforge.codegeneration.analysis.ProjectContextBuilder
 import org.springforge.codegeneration.parser.YamlParser
 import org.springforge.codegeneration.service.PromptBuilder
@@ -34,7 +37,6 @@ class GeneratePromptAction : AnAction("Generate Prompt", "Build prompt combining
             return
         }
 
-        // VALIDATION HANDLING FIX
         val validated = YamlValidator.validateAndFix(parsed.data!!)
         val yamlModel = when (validated) {
             is ValidationResult.AutoFixed -> validated.fixedModel
@@ -45,23 +47,40 @@ class GeneratePromptAction : AnAction("Generate Prompt", "Build prompt combining
             }
         }
 
-        // Run static project analyzer
-        val analysis = ProjectContextBuilder.build(project)
+        // Run analysis + prompt build in background
+        object : Task.Backgroundable(project, "SpringForge: Building Prompt...", false) {
+            override fun run(indicator: ProgressIndicator) {
+                indicator.text = "Analyzing project structure..."
+                indicator.fraction = 0.2
+                val analysis = ProjectContextBuilder.build(project)
 
-        // Build prompt
-        val prompt = PromptBuilder.buildPrompt(yamlModel, analysis)
+                indicator.text = "Scanning existing entities..."
+                indicator.fraction = 0.5
+                val existingEntities = try {
+                    val extractor = ExistingEntityExtractor(baseDir)
+                    val result = extractor.extract()
+                    if (result.isEmpty) null else result
+                } catch (_: Exception) { null }
 
-        // Save prompt to temporary file
-        val promptFile = File(baseDir, "springforge_prompt.txt")
-        promptFile.writeText(prompt)
+                indicator.text = "Building prompt..."
+                indicator.fraction = 0.7
+                val prompt = PromptBuilder.buildPrompt(yamlModel, analysis, existingEntities)
 
-        // Open in Editor
-        val vFile = LocalFileSystem.getInstance().refreshAndFindFileByIoFile(promptFile)
-        if (vFile != null) {
-            FileEditorManager.getInstance(project).openFile(vFile, true)
-        }
+                val promptFile = File(baseDir, "springforge_prompt.txt")
+                promptFile.writeText(prompt)
 
-        notify(project, "Prompt generated at springforge_prompt.txt", NotificationType.INFORMATION)
+                indicator.fraction = 1.0
+
+                // Open in Editor on EDT
+                com.intellij.openapi.application.ApplicationManager.getApplication().invokeLater {
+                    val vFile = LocalFileSystem.getInstance().refreshAndFindFileByIoFile(promptFile)
+                    if (vFile != null) {
+                        FileEditorManager.getInstance(project).openFile(vFile, true)
+                    }
+                    notify(project, "Prompt generated at springforge_prompt.txt", NotificationType.INFORMATION)
+                }
+            }
+        }.queue()
     }
 
     private fun notify(project: com.intellij.openapi.project.Project, msg: String, type: NotificationType) {
