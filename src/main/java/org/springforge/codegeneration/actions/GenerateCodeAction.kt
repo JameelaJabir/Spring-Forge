@@ -11,6 +11,7 @@ import com.intellij.openapi.progress.ProgressIndicator
 import com.intellij.openapi.progress.Task
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.LocalFileSystem
+import org.springforge.codegeneration.analysis.ExistingEntityExtractor
 import org.springforge.codegeneration.analysis.ProjectContextBuilder
 import org.springforge.codegeneration.parser.InputModel
 import org.springforge.codegeneration.parser.YamlParser
@@ -76,14 +77,23 @@ class GenerateCodeAction : AnAction("Generate Code") {
                     indicator.fraction = 0.1
                     val analysis = ProjectContextBuilder.build(project)
 
-                    // 3b. Build optimized prompt
+                    // 3a-2. Extract existing entities from the project
+                    indicator.text = "Scanning existing entities..."
+                    indicator.fraction = 0.15
+                    val existingEntities = try {
+                        val extractor = ExistingEntityExtractor(baseDir)
+                        val result = extractor.extract()
+                        if (result.isEmpty) null else result
+                    } catch (_: Exception) { null }
+
+                    // 3b. Build optimized prompt (with existing entity context)
                     indicator.text = "Building prompt..."
                     indicator.fraction = 0.2
-                    val prompt = PromptBuilder.buildPrompt(yamlModel, analysis)
+                    val prompt = PromptBuilder.buildPrompt(yamlModel, analysis, existingEntities)
 
-                    // Save prompt for debugging / inspection
-                    val promptFile = File(baseDir, "springforge_prompt.txt")
-                    promptFile.writeText(prompt)
+                    // // Save prompt for debugging / inspection
+                    // val promptFile = File(baseDir, "springforge_prompt.txt")
+                    // promptFile.writeText(prompt)
 
                     // 3c. Call Gemini LLM
                     indicator.text = "Calling Gemini LLM (this may take a minute)..."
@@ -91,9 +101,9 @@ class GenerateCodeAction : AnAction("Generate Code") {
                     val gemini = GeminiClient(apiKey = GeminiClient.resolveApiKey(baseDir))
                     val rawResponse = gemini.generate(prompt)
 
-                    // Save raw response for debugging
-                    val responseFile = File(baseDir, "springforge_response.txt")
-                    responseFile.writeText(rawResponse)
+                    // // Save raw response for debugging
+                    // val responseFile = File(baseDir, "springforge_response.txt")
+                    // responseFile.writeText(rawResponse)
 
                     // 3d. Parse LLM response into files
                     indicator.text = "Parsing generated code..."
@@ -112,7 +122,7 @@ class GenerateCodeAction : AnAction("Generate Code") {
                     if (generatedFiles.isEmpty()) {
                         notify(
                             project,
-                            "LLM returned no parseable files. Check springforge_response.txt for the raw output.",
+                            "LLM returned no parseable files.",
                             NotificationType.ERROR
                         )
                         return
@@ -139,13 +149,25 @@ class GenerateCodeAction : AnAction("Generate Code") {
                     val summary = buildSummary(writeResult, generatedFiles.size, depResult)
                     notify(project, summary, NotificationType.INFORMATION)
 
-                    // Open the prompt file for reference
-                    ApplicationManager.getApplication().invokeLater {
-                        val vf = LocalFileSystem.getInstance().refreshAndFindFileByIoFile(promptFile)
-                        if (vf != null) {
-                            FileEditorManager.getInstance(project).openFile(vf, false)
-                        }
-                    }
+                    // Publish results to sidebar panel
+                    val genResult = GenerationResult(
+                        totalFromLLM = generatedFiles.size,
+                        written = writeResult.written,
+                        skipped = writeResult.skipped,
+                        errors = writeResult.errors,
+                        addedDependencies = depResult.addedDependencies,
+                        depError = depResult.error,
+                        buildFile = depResult.buildFile
+                    )
+                    GenerationResultService.getInstance(project).publish(genResult)
+
+                    // // Open the prompt file for reference
+                    // ApplicationManager.getApplication().invokeLater {
+                    //     val vf = LocalFileSystem.getInstance().refreshAndFindFileByIoFile(promptFile)
+                    //     if (vf != null) {
+                    //         FileEditorManager.getInstance(project).openFile(vf, false)
+                    //     }
+                    // }
 
                 } catch (ex: IllegalStateException) {
                     // API key missing
