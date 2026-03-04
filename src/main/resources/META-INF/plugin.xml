@@ -25,6 +25,9 @@
         <!-- Audit logging service (PostgreSQL) -->
         <projectService serviceImplementation="org.springforge.cicdassistant.audit.AuditService"/>
 
+        <!-- Generation result service for sidebar display -->
+        <projectService serviceImplementation="org.springforge.codegeneration.service.GenerationResultService"/>
+
         <!-- Main SpringForge Tool Window (sidebar) -->
         <toolWindow
                 id="SpringForge"
@@ -32,16 +35,7 @@
                 icon="AllIcons.Nodes.Module"
                 factoryClass="org.springforge.toolwindow.SpringForgeToolWindowFactory"/>
 
-        <!-- Legacy Quality Tool Window (can be removed if not needed) -->
-        <notificationGroup
-                id="SpringForge Notifications"
-                displayType="BALLOON"
-                isLogByDefault="true"
-                title="SpringForge"/>
-        <toolWindow
-                id="SpringForgeQuality"
-                anchor="right"
-                factoryClass="org.springforge.qualityassurance.toolwindow.QualityToolWindowFactory"/>
+        
     </extensions>
 
 
