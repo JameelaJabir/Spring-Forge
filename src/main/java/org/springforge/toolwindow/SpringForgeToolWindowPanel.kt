@@ -7,7 +7,7 @@ import org.springforge.cicdassistant.audit.ui.AuditDashboardPanel
 import org.springforge.toolwindow.panels.CICDPanel
 import org.springforge.toolwindow.panels.CodeGenerationPanel
 import org.springforge.toolwindow.panels.QualityAssurancePanel
-import org.springforge.toolwindow.panels.RuntimeDebuggerPanel
+import org.springforge.toolwindow.panels.RuntimeAnalysisPanel
 import java.awt.BorderLayout
 import javax.swing.BorderFactory
 import javax.swing.JLabel
@@ -26,7 +26,7 @@ class SpringForgeToolWindowPanel(private val project: Project) : JPanel() {
     private val codeGenPanel  = CodeGenerationPanel(project)
     private val cicdPanel     = CICDPanel(project)
     private val qualityPanel  = QualityAssurancePanel(project)
-    private val runtimePanel  = RuntimeDebuggerPanel(project)
+    private val runtimePanel  = RuntimeAnalysisPanel(project)
     private val auditPanel    = AuditDashboardPanel(project)
 
     init {
@@ -102,7 +102,7 @@ class SpringForgeToolWindowPanel(private val project: Project) : JPanel() {
     /**
      * Get reference to Runtime Debugger panel
      */
-    fun getRuntimePanel(): RuntimeDebuggerPanel = runtimePanel
+    fun getRuntimePanel(): RuntimeAnalysisPanel = runtimePanel
 
     fun getAuditPanel(): AuditDashboardPanel = auditPanel
 }

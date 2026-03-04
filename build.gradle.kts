@@ -37,6 +37,9 @@ dependencies {
     implementation("org.postgresql:postgresql:42.7.3")
 
 
+    //
+    implementation("org.json:json:20231013")
+
 }
 
 intellij {

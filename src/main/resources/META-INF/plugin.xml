@@ -11,7 +11,13 @@
     <depends>com.intellij.modules.java</depends>
 
     <extensions defaultExtensionNs="com.intellij">
-        <notificationGroup id="SpringForge" displayType="BALLOON" isLogByDefault="true"/>
+        <executionListener
+                implementation="org.springforge.runtimeanalysis.console.SpringForgeRunListener"/>
+        <notificationGroup
+                id="SpringForge Notifications"
+                displayType="BALLOON"
+                isLogByDefault="true"
+                title="SpringForge"/>
 
         <!-- Project-level service for tool window -->
         <projectService serviceImplementation="org.springforge.toolwindow.SpringForgeToolWindowService"/>
