@@ -9,6 +9,7 @@ import org.springforge.toolwindow.panels.CICDPanel
 import org.springforge.toolwindow.panels.CodeGenerationPanel
 import org.springforge.toolwindow.panels.QualityAssurancePanel
 import org.springforge.toolwindow.panels.RuntimeAnalysisPanel
+import org.springforge.feedback.ui.FeedbackDialog
 import java.awt.BorderLayout
 import java.awt.Dimension
 import java.awt.Font
@@ -77,6 +78,15 @@ class SpringForgeToolWindowPanel(private val project: Project) : JPanel() {
             userLabel.foreground = JBColor.GRAY
             userLabel.font = userLabel.font.deriveFont(11f)
             rightPanel.add(userLabel)
+
+            val feedbackButton = JButton("\u2606 Feedback")
+            feedbackButton.preferredSize = Dimension(90, 24)
+            feedbackButton.font = feedbackButton.font.deriveFont(10f)
+            feedbackButton.toolTipText = "Share your feedback about SpringForge"
+            feedbackButton.addActionListener {
+                FeedbackDialog.showForModule(project, "springforge", "SpringForge")
+            }
+            rightPanel.add(feedbackButton)
 
             val logoutButton = JButton("Logout")
             logoutButton.preferredSize = Dimension(70, 24)

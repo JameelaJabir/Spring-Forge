@@ -21,7 +21,6 @@ import org.springforge.qualityassurance.model.ProjectFixResult
 import org.springforge.qualityassurance.network.MLServiceClient
 import org.springforge.qualityassurance.toolwindow.QualityToolWindowFactory
 import org.springforge.qualityassurance.toolwindow.QualityToolWindowPanel
-import org.springforge.feedback.ui.FeedbackDialog
 import org.springforge.qualityassurance.ui.ArchitectureSelectDialog
 
 class AnalyzeQualityAction : AnAction("Analyze Code Quality") {
@@ -133,9 +132,6 @@ class AnalyzeQualityAction : AnAction("Analyze Code Quality") {
                         durationMs         = System.currentTimeMillis() - startMs,
                         success            = true
                     )
-
-                    // Show feedback dialog
-                    FeedbackDialog.showForModule(project, "quality-assurance", "Code Quality Analysis")
 
                 } catch (ex: Exception) {
                     showError(

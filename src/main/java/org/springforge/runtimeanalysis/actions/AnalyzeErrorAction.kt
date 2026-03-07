@@ -12,7 +12,6 @@ import com.intellij.openapi.ui.Messages
 import org.springforge.runtimeanalysis.collector.ErrorCollector
 import org.springforge.runtimeanalysis.network.NetworkClient
 import org.springforge.runtimeanalysis.ui.AnalysisDialogHelper
-import org.springforge.feedback.ui.FeedbackDialog
 import org.springforge.runtimeanalysis.ui.SpringForgeNotifier
 
 class AnalyzeErrorAction : AnAction("Analyze with SpringForge") {
@@ -50,7 +49,6 @@ class AnalyzeErrorAction : AnAction("Analyze with SpringForge") {
 
                     ApplicationManager.getApplication().invokeLater {
                         AnalysisDialogHelper.showAnalysisResult(project, response)
-                        FeedbackDialog.showForModule(project, "runtime-analysis", "Runtime Error Analysis")
                     }
 
                 } catch (ex: Exception) {
