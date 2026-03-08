@@ -24,7 +24,7 @@ import java.util.concurrent.TimeUnit
  */
 object MLServiceClient {
 
-    private const val BASE_URL = "http://127.0.0.1:8000"
+    private const val BASE_URL = "https://api.springforge.dev/quality/"
 
     private val client = OkHttpClient.Builder()
         .connectTimeout(30, TimeUnit.SECONDS)
