@@ -4,14 +4,9 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
-import org.springforge.qualityassurance.model.CombinedAnalysisResult
-import org.springforge.qualityassurance.model.EnhancedPredictionResult
-import org.springforge.qualityassurance.model.FileFeatureModel
-import org.springforge.qualityassurance.model.FixRequest
-import org.springforge.qualityassurance.model.FixSuggestion
-import org.springforge.qualityassurance.model.ProjectAnalysisRequest
-import org.springforge.qualityassurance.model.ProjectFixResult
-import org.springforge.qualityassurance.model.SingleFixRequest
+import org.springforge.qualityassurance.model.*
+import org.springforge.qualityassurance.network.MLServiceClient.analyzeProjectFull
+import org.springforge.qualityassurance.network.MLServiceClient.normaliseArchitecture
 import org.springforge.qualityassurance.utils.JsonUtil
 import java.util.concurrent.TimeUnit
 
@@ -29,7 +24,7 @@ import java.util.concurrent.TimeUnit
  */
 object MLServiceClient {
 
-    private const val BASE_URL = "http://127.0.0.1:8081"
+    private const val BASE_URL = "https://api.springforge.dev/quality/"
 
     private val client = OkHttpClient.Builder()
         .connectTimeout(30, TimeUnit.SECONDS)
@@ -69,11 +64,17 @@ object MLServiceClient {
     /**
      * Calls POST /generate-fixes to get batch AI fix suggestions for all
      * anti-patterns detected by [analyzeProjectFull].
+     *
+     * @param fileSources optional map of file_name → source_code for context-aware fixes
      */
-    fun generateProjectFixes(analysisResult: CombinedAnalysisResult): ProjectFixResult {
+    fun generateProjectFixes(
+        analysisResult: CombinedAnalysisResult,
+        fileSources: Map<String, String>? = null
+    ): ProjectFixResult {
         val request = FixRequest(
             anti_patterns        = analysisResult.anti_patterns,
-            architecture_pattern = normaliseArchitecture(analysisResult.architecture_pattern)
+            architecture_pattern = normaliseArchitecture(analysisResult.architecture_pattern),
+            file_sources         = fileSources
         )
         val json = JsonUtil.toJson(request)
         println("🤖 Calling Gemini for ${analysisResult.anti_patterns.size} fix suggestions…")
