@@ -11,15 +11,34 @@
     <depends>com.intellij.modules.java</depends>
 
     <extensions defaultExtensionNs="com.intellij">
+        <executionListener
+                implementation="org.springforge.runtimeanalysis.console.SpringForgeRunListener"/>
         <notificationGroup
                 id="SpringForge Notifications"
                 displayType="BALLOON"
                 isLogByDefault="true"
                 title="SpringForge"/>
+
+        <!-- Application-level session manager (shared across all projects) -->
+        <applicationService serviceImplementation="org.springforge.auth.SessionManager"/>
+
+        <!-- Project-level service for tool window -->
+        <projectService serviceImplementation="org.springforge.toolwindow.SpringForgeToolWindowService"/>
+
+        <!-- Audit logging service (PostgreSQL) -->
+        <projectService serviceImplementation="org.springforge.cicdassistant.audit.AuditService"/>
+
+        <!-- Generation result service for sidebar display -->
+        <projectService serviceImplementation="org.springforge.codegeneration.service.GenerationResultService"/>
+
+        <!-- Main SpringForge Tool Window (sidebar) -->
         <toolWindow
-                id="SpringForgeQuality"
+                id="SpringForge"
                 anchor="right"
-                factoryClass="org.springforge.qualityassurance.toolwindow.QualityToolWindowFactory"/>
+                icon="AllIcons.Nodes.Module"
+                factoryClass="org.springforge.toolwindow.SpringForgeToolWindowFactory"/>
+
+        
     </extensions>
 
 
@@ -59,6 +78,11 @@
                         class="org.springforge.codegeneration.actions.GeneratePromptAction"
                         text="Generate Prompt for Code Generation"
                         description="Parse input.yml + analyze project + build LLM prompt"/>
+
+                <action id="SpringForge.CodeGen.GenerateCode"
+                        class="org.springforge.codegeneration.actions.GenerateCodeAction"
+                        text="Generate Code (input.yml → Gemini → Files)"
+                        description="Parse input.yml, analyze project, call Gemini LLM, and write generated Java files"/>
 
             </group>
 
