@@ -41,7 +41,7 @@ The plugin targets the full Spring Boot development lifecycle: from **project sc
 
 ---
 
-## System Architecture
+## 🏗️ System Architecture
 
 ```
 ┌──────────────────────────────────────────────────────────────────────────────┐
@@ -684,8 +684,6 @@ your-project/
 - [Enhanced Results Display](docs/GITHUB_MCP_IMPLEMENTATION_SUMMARY.md)
 
 ---
-
-## 🏗️ Architecture
 
 ## Project Structure
 
